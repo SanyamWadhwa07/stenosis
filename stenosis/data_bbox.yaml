@@ -1,0 +1,8 @@
+# Dataset splits
+train: /content/drive/MyDrive/arcade/stenosis/train/images  # Train images directory (relative to 'path')
+val: /content/drive/MyDrive/arcade/stenosis/train/images
+# Number of classes
+nc: 1  # Only one class (stenosis)
+
+# Class names
+names: ["stenosis"]

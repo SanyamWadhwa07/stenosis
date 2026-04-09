@@ -1,0 +1,30 @@
+# Dataset (large binary files — keep off GitHub)
+stenosis/train/
+stenosis/val/
+stenosis/test/
+stenosis/.ipynb_checkpoints/
+
+# Training outputs
+outputs/
+weights/
+runs/
+*.pt
+*.pth
+
+# Logs
+*.log
+job_output_*.txt
+job_error_*.txt
+logs/
+
+# Ultralytics cache
+*.cache
+
+# Python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+*.egg-info/
+dist/
+build/
+.env
