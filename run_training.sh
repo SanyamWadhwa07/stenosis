@@ -6,6 +6,14 @@ set -e
 
 export CUDA_VISIBLE_DEVICES=0
 
+# Ultralytics model.train() manages its own single-GPU training internally.
+# It reads the RANK env var — anything != -1 triggers DistributedSampler
+# which then crashes because init_process_group is never called.
+# srun/PMI sets RANK=0, so we must override it.
+export RANK=-1
+export LOCAL_RANK=-1
+export WORLD_SIZE=1
+
 SCRIPTS_DIR=/workspace/stenosis/Stenosis
 
 cd $SCRIPTS_DIR
@@ -23,37 +31,37 @@ echo ""
 echo "============================================================"
 echo "[1/6] YOLO11m"
 echo "============================================================"
-torchrun --nproc_per_node=1 --nnodes=1 --master_port=29500 $SCRIPTS_DIR/train_yolo11.py
+python $SCRIPTS_DIR/train_yolo11.py
 
 echo ""
 echo "============================================================"
 echo "[2/6] YOLOv8m"
 echo "============================================================"
-torchrun --nproc_per_node=1 --nnodes=1 --master_port=29501 $SCRIPTS_DIR/train_yolov8.py
+python $SCRIPTS_DIR/train_yolov8.py
 
 echo ""
 echo "============================================================"
 echo "[3/6] YOLOv9m"
 echo "============================================================"
-torchrun --nproc_per_node=1 --nnodes=1 --master_port=29502 $SCRIPTS_DIR/train_yolov9.py
+python $SCRIPTS_DIR/train_yolov9.py
 
 echo ""
 echo "============================================================"
 echo "[4/6] YOLOv10m"
 echo "============================================================"
-torchrun --nproc_per_node=1 --nnodes=1 --master_port=29503 $SCRIPTS_DIR/train_yolov10.py
+python $SCRIPTS_DIR/train_yolov10.py
 
 echo ""
 echo "============================================================"
 echo "[5/6] RT-DETR-R18"
 echo "============================================================"
-torchrun --nproc_per_node=1 --nnodes=1 --master_port=29504 $SCRIPTS_DIR/train_rtdetr_r18.py
+python $SCRIPTS_DIR/train_rtdetr_r18.py
 
 echo ""
 echo "============================================================"
 echo "[6/6] RT-DETR-R50"
 echo "============================================================"
-torchrun --nproc_per_node=1 --nnodes=1 --master_port=29505 $SCRIPTS_DIR/train_rtdetr_r50.py
+python $SCRIPTS_DIR/train_rtdetr_r50.py
 
 echo ""
 echo "============================================================"
