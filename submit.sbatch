@@ -36,6 +36,9 @@ srun --mpi=pmi2 \
         echo "============================================================"
         echo "Installing dependencies ..."
         echo "============================================================"
+        # Install headless opencv FIRST so ultralytics doesn't pull in
+        # opencv-python which requires libGL.so.1 (missing in this container)
+        pip install --user --quiet opencv-python-headless
         pip install --user --quiet ultralytics pyyaml
 
         echo ""

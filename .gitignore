@@ -1,3 +1,6 @@
+# Claude Code internals
+.claude/
+
 # Dataset (large binary files — keep off GitHub)
 stenosis/train/
 stenosis/val/
