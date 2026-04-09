@@ -20,8 +20,7 @@ echo "Memory         : $SLURM_MEM_PER_NODE MB"
 echo "Start Time     : $(date '+%Y-%m-%d %H:%M:%S')"
 echo "------------------------------------------------------------"
 
-srun --mpi=pmi2 \
-     --container-image=/home/hpc_apps/nvidia+pytorch+25.04-py3.sqsh \
+srun --container-image=/home/hpc_apps/nvidia+pytorch+25.04-py3.sqsh \
      --container-mounts=/home/harpreet:/workspace \
      bash /workspace/stenosis/Stenosis/run_training.sh
 
