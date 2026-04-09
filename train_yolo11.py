@@ -14,7 +14,7 @@ import yaml
 # ─── Config ───────────────────────────────────────────────────────────────────
 MODEL_NAME = "yolo11m"
 MODEL_PT   = "yolo11m.pt"
-IMG_SIZE   = 1024
+IMG_SIZE   = 512
 EPOCHS     = 100
 BATCH      = 8
 WORKERS    = 4

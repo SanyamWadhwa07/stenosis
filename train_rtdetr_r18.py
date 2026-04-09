@@ -15,7 +15,7 @@ import yaml
 # ─── Config ───────────────────────────────────────────────────────────────────
 MODEL_NAME = "rtdetr-r18"
 MODEL_PT   = "rtdetr-r18.pt"
-IMG_SIZE   = 1024
+IMG_SIZE   = 512
 EPOCHS     = 100
 BATCH      = 8
 WORKERS    = 4
