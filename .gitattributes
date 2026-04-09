@@ -1,0 +1,9 @@
+* text=auto
+
+# Force LF for all scripts — CRLF breaks SLURM and bash heredocs
+*.sh    text eol=lf
+*.sbatch text eol=lf
+*.py    text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
+*.md    text eol=lf
