@@ -6,6 +6,14 @@ set -e
 
 export CUDA_VISIBLE_DEVICES=0
 
+# srun sets SLURM_PROCID / PMI_RANK which the PyTorch container maps to
+# RANK and WORLD_SIZE. Ultralytics reads RANK — anything != -1 triggers
+# DistributedSampler which then crashes because init_process_group was
+# never called. Force single-process mode explicitly.
+export RANK=-1
+export LOCAL_RANK=-1
+export WORLD_SIZE=1
+
 SCRIPTS_DIR=/workspace/stenosis/Stenosis
 
 cd $SCRIPTS_DIR
