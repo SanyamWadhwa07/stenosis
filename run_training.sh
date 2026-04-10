@@ -28,7 +28,7 @@ pip install --user --quiet ultralytics pyyaml pycocotools
 # MMDetection (required for YOLOv3, DINO-DETR, Grounding DINO)
 pip install --user --quiet -U openmim
 python -m mim install --quiet mmengine
-python -m mim install --quiet "mmcv>=2.0.0"
+python -m mim install --quiet "mmcv>=2.0.0rc4,<2.2.0"
 python -m mim install --quiet mmdet
 # Grounding DINO needs the BERT text encoder
 pip install --user --quiet transformers
