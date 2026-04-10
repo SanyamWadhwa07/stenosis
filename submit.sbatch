@@ -5,7 +5,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
 #SBATCH --gres=gpu:1
-#SBATCH --time=72:00:00
+#SBATCH --time=120:00:00
 #SBATCH --nodelist=dgxanode03
 #SBATCH --output=job_output_%j.txt
 #SBATCH --error=job_error_%j.txt

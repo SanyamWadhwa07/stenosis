@@ -1,9 +1,13 @@
 """
 Train YOLOv9m on the stenosis detection dataset.
 Saves best.pt and last.pt to PROJECT/MODEL_NAME/weights/.
+
+Evaluates with the full COCO metric suite used in the paper
+(arXiv 2503.01601) via pycocotools:
+  mAP@[0.50:0.95], mAP50, mAP75, mAP(small/medium/large)
+  AR@100, AR@300, AR@1000, AR(small/medium/large)
 """
 
-import csv
 import json
 import pathlib
 import time
@@ -96,26 +100,139 @@ def convert_coco_val_to_yolo():
     print(f"[setup] Converted {written} images → {labels_dir}")
 
 
+def compute_coco_metrics() -> dict:
+    """
+    Run COCO-style evaluation on best.pt.
+    Matches the exact metric suite reported in arXiv:2503.01601 (Table I).
+    """
+    try:
+        from pycocotools.coco import COCO
+        from pycocotools.cocoeval import COCOeval
+    except ImportError:
+        print("[eval] pycocotools not found — skipping COCO metrics. "
+              "Install with: pip install pycocotools")
+        return {}
+
+    from ultralytics import YOLO
+
+    weights = str(pathlib.Path(PROJECT) / MODEL_NAME / "weights" / "best.pt")
+    if not pathlib.Path(weights).exists():
+        print(f"[eval] best.pt not found at {weights}, skipping COCO metrics.")
+        return {}
+
+    print(f"\n[eval] Computing COCO metrics on {weights} …")
+
+    coco_gt = COCO(VAL_JSON)
+    fname_to_id = {
+        pathlib.Path(img["file_name"]).name: img["id"]
+        for img in coco_gt.dataset["images"]
+    }
+    stenosis_cat = next(
+        c["id"] for c in coco_gt.dataset["categories"]
+        if c["name"].lower() == "stenosis"
+    )
+
+    model = YOLO(weights)
+    preds = model.predict(
+        source=VAL_IMAGES, imgsz=IMG_SIZE,
+        conf=0.001, iou=0.65, verbose=False,
+    )
+
+    coco_preds = []
+    for r in preds:
+        fname  = pathlib.Path(r.path).name
+        img_id = fname_to_id.get(fname)
+        if img_id is None:
+            continue
+        if r.boxes is None or len(r.boxes) == 0:
+            continue
+        for box, score in zip(
+            r.boxes.xyxy.cpu().numpy(),
+            r.boxes.conf.cpu().numpy(),
+        ):
+            x1, y1, x2, y2 = box
+            coco_preds.append({
+                "image_id":    img_id,
+                "category_id": stenosis_cat,
+                "bbox":        [float(x1), float(y1), float(x2 - x1), float(y2 - y1)],
+                "score":       float(score),
+            })
+
+    out_dir    = pathlib.Path(PROJECT) / MODEL_NAME
+    preds_file = out_dir / "coco_preds.json"
+    with open(preds_file, "w") as f:
+        json.dump(coco_preds, f)
+
+    if not coco_preds:
+        print("[eval] No predictions — check conf threshold / model output.")
+        return {}
+
+    coco_dt = coco_gt.loadRes(str(preds_file))
+    metrics: dict = {}
+
+    ev = COCOeval(coco_gt, coco_dt, "bbox")
+    ev.params.maxDets = [1, 10, 100]
+    ev.evaluate(); ev.accumulate(); ev.summarize()
+    s = ev.stats
+    metrics.update({
+        "mAP_0.50:0.95":  round(float(s[0]),  4),
+        "mAP50":           round(float(s[1]),  4),
+        "mAP75":           round(float(s[2]),  4),
+        "mAP_small":       round(float(s[3]),  4),
+        "mAP_medium":      round(float(s[4]),  4),
+        "mAP_large":       round(float(s[5]),  4),
+        "AR_maxDets_1":    round(float(s[6]),  4),
+        "AR_maxDets_10":   round(float(s[7]),  4),
+        "AR_maxDets_100":  round(float(s[8]),  4),
+        "AR_small":        round(float(s[9]),  4),
+        "AR_medium":       round(float(s[10]), 4),
+        "AR_large":        round(float(s[11]), 4),
+    })
+
+    ev300 = COCOeval(coco_gt, coco_dt, "bbox")
+    ev300.params.maxDets = [1, 10, 300]
+    ev300.evaluate(); ev300.accumulate(); ev300.summarize()
+    metrics["AR_maxDets_300"] = round(float(ev300.stats[8]), 4)
+
+    ev1000 = COCOeval(coco_gt, coco_dt, "bbox")
+    ev1000.params.maxDets = [1, 10, 1000]
+    ev1000.evaluate(); ev1000.accumulate(); ev1000.summarize()
+    metrics["AR_maxDets_1000"] = round(float(ev1000.stats[8]), 4)
+
+    metrics_file = out_dir / "coco_metrics.json"
+    with open(metrics_file, "w") as f:
+        json.dump(metrics, f, indent=2)
+    print(f"[eval] Metrics saved → {metrics_file}")
+    return metrics
+
+
 def print_summary(start_time: float):
     elapsed = int(time.time() - start_time)
     h, m, s = elapsed // 3600, (elapsed % 3600) // 60, elapsed % 60
+
+    metrics = compute_coco_metrics()
+
     print(f"\n{'='*60}")
     print(f"Model   : {MODEL_NAME}")
     print(f"Elapsed : {h}h {m}m {s}s")
 
-    results_csv = pathlib.Path(PROJECT) / MODEL_NAME / "results.csv"
-    if results_csv.exists():
-        rows = list(csv.DictReader(results_csv.open()))
-        map_col = next(
-            (k for k in rows[0] if "mAP50" in k and "mAP50-95" not in k), None
-        )
-        if map_col and rows:
-            best = max(rows, key=lambda r: float(r[map_col].strip() or 0))
-            best_epoch = rows.index(best) + 1
-            print(f"Best mAP50 : {float(best[map_col].strip()):.4f}  (epoch {best_epoch})")
+    if metrics:
+        print(f"\n--- COCO Metrics (paper suite, arXiv:2503.01601) ---")
+        print(f"  mAP@[0.50:0.95]  : {metrics.get('mAP_0.50:0.95', 'N/A')}")
+        print(f"  mAP50            : {metrics.get('mAP50',          'N/A')}")
+        print(f"  mAP75            : {metrics.get('mAP75',          'N/A')}")
+        print(f"  mAP (small)      : {metrics.get('mAP_small',      'N/A')}")
+        print(f"  mAP (medium)     : {metrics.get('mAP_medium',     'N/A')}")
+        print(f"  mAP (large)      : {metrics.get('mAP_large',      'N/A')}")
+        print(f"  AR @ 100         : {metrics.get('AR_maxDets_100',  'N/A')}")
+        print(f"  AR @ 300         : {metrics.get('AR_maxDets_300',  'N/A')}")
+        print(f"  AR @ 1000        : {metrics.get('AR_maxDets_1000', 'N/A')}")
+        print(f"  AR (small)       : {metrics.get('AR_small',        'N/A')}")
+        print(f"  AR (medium)      : {metrics.get('AR_medium',       'N/A')}")
+        print(f"  AR (large)       : {metrics.get('AR_large',        'N/A')}")
 
     weights_dir = pathlib.Path(PROJECT) / MODEL_NAME / "weights"
-    print(f"Weights : {weights_dir}/best.pt")
+    print(f"\nWeights : {weights_dir}/best.pt")
     print(f"{'='*60}\n")
 
 
