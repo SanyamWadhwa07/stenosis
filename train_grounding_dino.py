@@ -99,13 +99,21 @@ def build_config():
         )
 
     mmdet_root = pathlib.Path(mmdet.__file__).parent
-    base_cfg   = (
-        mmdet_root / "configs" / "grounding_dino"
+    # mim installs configs under <pkg>/.mim/configs/, not <pkg>/configs/
+    base_cfg = (
+        mmdet_root / ".mim" / "configs" / "grounding_dino"
         / "grounding_dino_r50_4xb2-12e_coco.py"
     )
     if not base_cfg.exists():
+        base_cfg = (
+            mmdet_root / "configs" / "grounding_dino"
+            / "grounding_dino_r50_4xb2-12e_coco.py"
+        )
+    if not base_cfg.exists():
         raise FileNotFoundError(
-            f"Base config not found: {base_cfg}\n"
+            f"Base config not found in either:\n"
+            f"  {mmdet_root / '.mim' / 'configs' / 'grounding_dino'}\n"
+            f"  {mmdet_root / 'configs' / 'grounding_dino'}\n"
             "Make sure mmdet is installed via mim (not plain pip)."
         )
 

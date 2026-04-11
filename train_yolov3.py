@@ -93,10 +93,16 @@ def build_config():
         )
 
     mmdet_root  = pathlib.Path(mmdet.__file__).parent
-    base_cfg    = mmdet_root / "configs" / "yolo" / "yolov3_d53_8xb8-ms-608-273e_coco.py"
+    # mim installs configs under <pkg>/.mim/configs/, not <pkg>/configs/
+    base_cfg = mmdet_root / ".mim" / "configs" / "yolo" / "yolov3_d53_8xb8-ms-608-273e_coco.py"
+    if not base_cfg.exists():
+        # fallback: older layout without .mim
+        base_cfg = mmdet_root / "configs" / "yolo" / "yolov3_d53_8xb8-ms-608-273e_coco.py"
     if not base_cfg.exists():
         raise FileNotFoundError(
-            f"Base config not found: {base_cfg}\n"
+            f"Base config not found in either:\n"
+            f"  {mmdet_root / '.mim' / 'configs' / 'yolo'}\n"
+            f"  {mmdet_root / 'configs' / 'yolo'}\n"
             "Make sure mmdet is installed via mim (not plain pip)."
         )
 
