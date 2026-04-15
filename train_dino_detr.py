@@ -16,7 +16,48 @@ Evaluates with the full COCO metric suite from the paper:
 
 import json
 import pathlib
+import subprocess
+import sys
 import time
+
+
+def _resolve_base_cfg(mmdet_root: pathlib.Path, subdir: str, filename: str) -> pathlib.Path:
+    """
+    Locate an mmdet base config robustly:
+      1. Standard bundled path inside the mmdet package.
+      2. Recursive search inside the mmdet package (catches version differences).
+      3. mim download fallback — fetches the config from the OpenMMLab model zoo.
+    """
+    candidate = mmdet_root / "configs" / subdir / filename
+    if candidate.exists():
+        return candidate
+
+    matches = list(mmdet_root.rglob(filename))
+    if matches:
+        print(f"[setup] Found config via recursive search: {matches[0]}")
+        return matches[0]
+
+    config_name = filename.replace(".py", "")
+    dest = pathlib.Path(WORK_DIR)
+    dest.mkdir(parents=True, exist_ok=True)
+    downloaded = dest / filename
+    if not downloaded.exists():
+        print(f"[setup] Config not bundled — downloading via mim: {config_name}")
+        subprocess.run(
+            [sys.executable, "-m", "mim", "download", "mmdet",
+             "--config", config_name, "--dest", str(dest)],
+            check=True,
+        )
+    if downloaded.exists():
+        print(f"[setup] Using downloaded config: {downloaded}")
+        return downloaded
+
+    raise FileNotFoundError(
+        f"Cannot locate base config '{filename}'.\n"
+        f"Tried: {candidate}\n"
+        f"Run manually: python -m mim download mmdet --config {config_name} --dest {WORK_DIR}"
+    )
+
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 MODEL_NAME  = "dino-detr-r50"
@@ -45,12 +86,9 @@ FILTERED_VAL_JSON   = str(DATASET_ROOT / "val"   / "annotations" / "val_stenosis
 def filter_coco_to_stenosis(src: str, dst: str):
     """
     Write a filtered COCO JSON containing only the 'stenosis' category
-    with category_id remapped to 1.  Idempotent — skips if dst exists.
+    with category_id remapped to 1 and annotation IDs reassigned sequentially.
+    Always regenerates to ensure IDs are unique (fixes any pre-existing broken file).
     """
-    if pathlib.Path(dst).exists():
-        print(f"[setup] Filtered JSON already exists: {dst}")
-        return
-
     with open(src) as f:
         data = json.load(f)
 
@@ -62,6 +100,9 @@ def filter_coco_to_stenosis(src: str, dst: str):
         for ann in data["annotations"]
         if ann["category_id"] == orig_id
     ]
+    # Reassign IDs sequentially to guarantee uniqueness
+    for i, ann in enumerate(filtered_anns, start=1):
+        ann["id"] = i
 
     out = {
         "info":        data.get("info", {}),
